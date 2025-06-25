@@ -84,7 +84,8 @@ def lambda_handler(event, context):
         "faculty.json",
         "faqs.json",
         "industry_projects.json",
-        "coursesyllabus.json" 
+        "coursesyllabus.json",
+        "industrial_project_ideas.json"
     ]
 
     try:
@@ -203,6 +204,106 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
                 "headers": {"Access-Control-Allow-Origin": "*"},
                 "body": json.dumps({"answer": answer})
             }
+        # Project Topic Suggestions by Domain
+        project_keywords = [
+            "project topics", "project ideas", "mini project", "final year project", "domain projects",
+            "ai project", "iot project", "cloud project", "data science project", "cybersecurity project",
+            "blockchain project", "web development project", "mobile app project"
+        ]
+
+        if any(word in lower_q for word in project_keywords):
+            print("→ Project domain suggestion detected.")
+            project_data = json.loads(read_file_from_s3(bucket, "industrial_project_ideas.json"))
+
+            matched_domains = []
+            response_lines = []
+
+            for domain in project_data:
+                if domain.lower() in lower_q:
+                    matched_domains.append(domain)
+
+            if matched_domains:
+                for domain in matched_domains:
+                    response_lines.append(f"🔷 **{domain} Projects:**")
+                    for topic in project_data[domain]:
+                        response_lines.append(f"• {topic}")
+                    response_lines.append("")  # Empty line for spacing
+            else:
+                # No specific domain matched – list all
+                for domain, topics in project_data.items():
+                    response_lines.append(f"🔷 **{domain} Projects:**")
+                    for topic in topics:
+                        response_lines.append(f"• {topic}")
+                    response_lines.append("")
+
+            return {
+                "statusCode": 200,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"answer": "\n".join(response_lines)})
+            }
+        # 📘 Important Question Links (by semester or subject)
+        important_keywords = [
+            "important question", "important questions", "important links", "youtube links",
+            "video links", "question links", "sem videos", "semester videos", "unit videos"
+        ]
+
+        if any(word in lower_q for word in important_keywords):
+            print("→ Important question link request detected.")
+            link_data = json.loads(read_file_from_s3(bucket, "important_questions_links.json"))
+
+            sem_map = {
+                "1": "Semester 1", "first": "Semester 1", "sem 1": "Semester 1",
+                "2": "Semester 2", "second": "Semester 2", "sem 2": "Semester 2",
+                "3": "Semester 3", "third": "Semester 3", "sem 3": "Semester 3",
+                "4": "Semester 4", "fourth": "Semester 4", "sem 4": "Semester 4",
+                "5": "Semester 5", "fifth": "Semester 5", "sem 5": "Semester 5",
+                "6": "Semester 6", "sixth": "Semester 6", "sem 6": "Semester 6",
+                "7": "Semester 7", "seventh": "Semester 7", "sem 7": "Semester 7",
+                "8": "Semester 8", "eighth": "Semester 8", "sem 8": "Semester 8",
+            }
+
+            # 🔍 1. Check for semester-level request (with better matching)
+            found_semester = None
+            for key, label in sem_map.items():
+                # Use whole-word regex match to avoid partial or fuzzy issues
+                if re.search(rf"\b{re.escape(key)}\b", lower_q):
+                    found_semester = label
+                    break
+
+            print(f"Resolved semester from query: {found_semester}")
+
+            if found_semester and found_semester in link_data:
+                links = link_data[found_semester]
+                response_lines = [f"🎓 **{found_semester} Important Question Links:**\n"]
+                for subject, url in links.items():
+                    response_lines.append(f"🔗 [{subject}]({url})")
+                return {
+                    "statusCode": 200,
+                    "headers": {"Access-Control-Allow-Origin": "*"},
+                    "body": json.dumps({"answer": "\n".join(response_lines)})
+                }
+
+
+            # 🔍 2. Check for subject-level request
+            for sem, subjects in link_data.items():
+                for subject, url in subjects.items():
+                    if subject.lower() in lower_q:
+                        return {
+                            "statusCode": 200,
+                            "headers": {"Access-Control-Allow-Origin": "*"},
+                            "body": json.dumps({
+                                "answer": f"🔗 **{subject}** ({sem})\n[Click here for Important Question Link]({url})"
+                            })
+                        }
+
+            return {
+                "statusCode": 200,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({
+                    "answer": "Sorry, I couldn't find the important question links for that subject or semester. Please check the spelling or try asking again!"
+                })
+            }
+
 
         # Default fallback
         print("→ Default: combining all files.")
@@ -280,14 +381,7 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
                 "headers": {"Access-Control-Allow-Origin": "*"},
                 "body": json.dumps({"answer": answer})
             }
-        # Answer how many semesters in BE CSE (Default: 8)
-        if "how many semester" in lower_q and ("be cse" in lower_q or "cse" in lower_q or "computer science" in lower_q):
-            print("→ Semester count question detected.")
-            return {
-                "statusCode": 200,
-                "headers": {"Access-Control-Allow-Origin": "*"},
-                "body": json.dumps({"answer": "The B.E. CSE program consists of 8 semesters."})
-            }
+        
 
     except Exception as e:
         print("Error:", str(e))
