@@ -83,7 +83,8 @@ def lambda_handler(event, context):
         "elective_courses.json",
         "faculty.json",
         "faqs.json",
-        "industry_projects.json"
+        "industry_projects.json",
+        "coursesyllabus.json" 
     ]
 
     try:
@@ -151,23 +152,6 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
                 "body": json.dumps({"answer": answer})
             }
 
-        # Course code (e.g., EP101)
-        if re.match(r"[A-Z]{2,4}\d{3}", question.strip().upper()):
-            print("→ Course code pattern detected.")
-            combined_text = (
-                read_file_from_s3(bucket, "courses.json") + "\n\n" +
-                read_file_from_s3(bucket, "elective_courses.json") + "\n\n"
-            )
-            for key in keys:
-                if key not in ["courses.json", "elective_courses.json"]:
-                    combined_text += read_file_from_s3(bucket, key) + "\n\n"
-            best_context = find_best_chunks(combined_text, question)
-            answer = ask_claude(best_context, question)
-            return {
-                "statusCode": 200,
-                "headers": {"Access-Control-Allow-Origin": "*"},
-                "body": json.dumps({"answer": answer})
-            }
 
         # Conference papers
         if "conference" in lower_q or "paper" in lower_q or "authors" in lower_q:
@@ -234,6 +218,76 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
             "headers": {"Access-Control-Allow-Origin": "*"},
             "body": json.dumps({"answer": answer})
         }
+
+        # Syllabus / Semester-wise Course Info
+        syllabus_keywords = [
+            "semester", "syllabus", "unit", "lesson", "topics", "subjects", 
+            "second sem", "third sem", "first sem", "fourth sem", "fifth sem", 
+            "sixth sem", "seventh sem", "eighth sem", "sem i", "sem ii", "sem iii",
+            "sem iv", "sem v", "sem vi", "sem vii", "sem viii"
+        ]
+
+        if any(word in lower_q for word in syllabus_keywords):
+            print("→ Syllabus or semester-wise question detected.")
+            syllabus_text = read_file_from_s3(bucket, "coursesyllabus.json")
+            syllabus_data = json.loads(syllabus_text)
+
+            # Extract relevant semester data
+            cse_syllabus = syllabus_data.get("CSE_Regulation_2021", {})
+            response_texts = []
+
+            for semester, subjects in cse_syllabus.items():
+                if semester.lower().replace("_", " ") in lower_q or semester[-1] in lower_q:
+                    response_texts.append(f"📘 **{semester.replace('_', ' ')} Courses**:\n")
+                    for code, info in subjects.items():
+                        title = info.get("title", "Untitled")
+                        units = info.get("units", [])
+                        response_texts.append(f"🔹 {code} - {title}\nUnits:\n" + "\n".join([f"  - {unit}" for unit in units]) + "\n")
+
+            if response_texts:
+                return {
+                    "statusCode": 200,
+                    "headers": {"Access-Control-Allow-Origin": "*"},
+                    "body": json.dumps({"answer": "\n".join(response_texts)})
+                }
+
+            # If user asked about a specific subject code or course title (fallback to Claude)
+            combined_text = syllabus_text
+            for key in keys:
+                if key != "coursesyllabus.json":
+                    combined_text += read_file_from_s3(bucket, key) + "\n\n"
+            best_context = find_best_chunks(combined_text, question)
+            answer = ask_claude(best_context, question)
+            return {
+                "statusCode": 200,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"answer": answer})
+            }
+        # Course code (e.g., EP101)
+        if re.match(r"[A-Z]{2,4}\d{3}", question.strip().upper()):
+            print("→ Course code pattern detected.")
+            combined_text = (
+                read_file_from_s3(bucket, "courses.json") + "\n\n" +
+                read_file_from_s3(bucket, "elective_courses.json") + "\n\n"
+            )
+            for key in keys:
+                if key not in ["courses.json", "elective_courses.json"]:
+                    combined_text += read_file_from_s3(bucket, key) + "\n\n"
+            best_context = find_best_chunks(combined_text, question)
+            answer = ask_claude(best_context, question)
+            return {
+                "statusCode": 200,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"answer": answer})
+            }
+        # Answer how many semesters in BE CSE (Default: 8)
+        if "how many semester" in lower_q and ("be cse" in lower_q or "cse" in lower_q or "computer science" in lower_q):
+            print("→ Semester count question detected.")
+            return {
+                "statusCode": 200,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"answer": "The B.E. CSE program consists of 8 semesters."})
+            }
 
     except Exception as e:
         print("Error:", str(e))
