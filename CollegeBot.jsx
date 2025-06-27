@@ -213,15 +213,16 @@ function CollegeBot() {
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
             style={{
-              width: "100%",
-              padding: "0.75rem",
-              fontSize: "1rem",
-              borderRadius: "8px",
-              border: "1px solid #333",
+              width: "200px", // smaller width
+              padding: "0.4rem 0.6rem", // reduced padding
+              fontSize: "0.95rem", // slightly smaller font
+              borderRadius: "6px",
+              border: "1px solid #444",
               backgroundColor: "#2b2b2b",
               color: "#fff",
               marginBottom: "1rem",
               outline: "none",
+              cursor: "pointer",
             }}
           >
             <option value="CSE">CSE</option>
@@ -229,6 +230,54 @@ function CollegeBot() {
             <option value="CSBS">CSBS</option>
             <option value="AIDS">AIDS</option>
           </select>
+          {/* Suggested Keywords */}
+          <div style={{ marginBottom: "1rem" }}>
+            <p
+              style={{
+                color: "#ccc",
+                fontSize: "0.95rem",
+                marginBottom: "0.5rem",
+              }}
+            >
+              🔍 Try asking about:
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              {[
+                "hod",
+                "faculty list",
+                "who is [faculty name]",
+                "subjects in semester [number]",
+                "units of [subject name]",
+                "elective courses available",
+                "elective subjects in sem [number]",
+                "mission and vision",
+                "important questions link for [unit name]",
+                "unit links of sem [number]",
+                "display all the industrial projects done",
+                "Tell me about the [Geons Logix project / project name]",
+                "project ideas",
+                "credits for [code / subject name]",
+              ].map((keyword, idx) => (
+                <button
+                  key={idx}
+                  onClick={() =>
+                    setQuestion((prev) => prev + (prev ? " " : "") + keyword)
+                  }
+                  style={{
+                    backgroundColor: "#444",
+                    color: "#fff",
+                    padding: "0.4rem 0.75rem",
+                    borderRadius: "20px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  {keyword}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <input
             type="text"
