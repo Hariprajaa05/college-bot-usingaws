@@ -1,4 +1,3 @@
-#this is for different departments and is wroking as fire
 import json
 import boto3
 import time
@@ -152,7 +151,7 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
             # If no match, fallback to Claude
             combined_text = faculty_text
             for key in keys:
-                if key != "faculty.json":
+                if not key.endswith("faculty.json"):
                     combined_text += read_file_from_s3(bucket, key) + "\n\n"
             best_context = find_best_chunks(combined_text, question)
             answer = ask_claude(best_context, question)
@@ -325,17 +324,19 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
             syllabus_text = read_file_from_s3(bucket, dept_prefix + "coursesyllabus.json")
             syllabus_data = json.loads(syllabus_text)
 
-            # Extract relevant semester data
-            cse_syllabus = syllabus_data.get("CSE_Regulation_2021", {})
             response_texts = []
 
-            for semester, subjects in cse_syllabus.items():
-                if semester.lower().replace("_", " ") in lower_q or semester[-1] in lower_q:
-                    response_texts.append(f"📘 **{semester.replace('_', ' ')} Courses**:\n")
-                    for code, info in subjects.items():
-                        title = info.get("title", "Untitled")
-                        units = info.get("units", [])
-                        response_texts.append(f"🔹 {code} - {title}\nUnits:\n" + "\n".join([f"  - {unit}" for unit in units]) + "\n")
+            # ✅ Iterate through all departments in the syllabus JSON
+            for dept_key, dept_syllabus in syllabus_data.items():
+                for semester, subjects in dept_syllabus.items():
+                    # Normalize semester name for matching
+                    normalized_sem = semester.lower().replace("_", " ")
+                    if normalized_sem in lower_q or semester[-1] in lower_q:
+                        response_texts.append(f"📘 **{dept_key.replace('_', ' ')} - {semester.replace('_', ' ')} Courses**:\n")
+                        for code, info in subjects.items():
+                            title = info.get("title", "Untitled")
+                            units = info.get("units", [])
+                            response_texts.append(f"🔹 {code} - {title}\nUnits:\n" + "\n".join([f"  - {unit}" for unit in units]) + "\n")
 
             if response_texts:
                 return {
@@ -344,7 +345,7 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
                     "body": json.dumps({"answer": "\n".join(response_texts)})
                 }
 
-            # Fallback to Claude
+            # 🔁 Fallback to Claude or LLM
             combined_text = syllabus_text
             for key in keys:
                 if key != "coursesyllabus.json":
@@ -356,6 +357,7 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
                 "headers": {"Access-Control-Allow-Origin": "*"},
                 "body": json.dumps({"answer": answer})
             }
+
         # Course code (e.g., EP101)
                 # Course code (e.g., EP101)
         if re.match(r"[A-Z]{2,4}\d{3}", question.strip().upper()):
