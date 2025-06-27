@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 function CollegeBot() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [department, setDepartment] = useState("CSE");
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -43,8 +44,9 @@ function CollegeBot() {
       const response = await fetch(
         `https://l2n698llce.execute-api.us-east-1.amazonaws.com/prod/GetCollegeInfo?q=${encodeURIComponent(
           question
-        )}`
+        )}&department=${department.toLowerCase()}`
       );
+
       const data = await response.json();
       const responseAnswer = data.answer || "No response received.";
 
@@ -74,7 +76,6 @@ function CollegeBot() {
     const updated = history.filter((_, index) => index !== indexToDelete);
     setHistory(updated);
 
-    // Clear selectedQA if it was just deleted
     if (
       selectedQA &&
       selectedQA.question === deleted.question &&
@@ -197,9 +198,41 @@ function CollegeBot() {
             🎓 College Info AI Bot
           </h2>
 
+          {/* Department Dropdown */}
+          <label
+            style={{
+              display: "block",
+              marginBottom: "0.5rem",
+              color: "#ccc",
+              fontSize: "1rem",
+            }}
+          >
+            Select Department:
+          </label>
+          <select
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "0.75rem",
+              fontSize: "1rem",
+              borderRadius: "8px",
+              border: "1px solid #333",
+              backgroundColor: "#2b2b2b",
+              color: "#fff",
+              marginBottom: "1rem",
+              outline: "none",
+            }}
+          >
+            <option value="CSE">CSE</option>
+            <option value="IT">IT</option>
+            <option value="CSBS">CSBS</option>
+            <option value="AIDS">AIDS</option>
+          </select>
+
           <input
             type="text"
-            placeholder="Ask something about B.E CSE..."
+            placeholder={`Ask something about ${department}...`}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAsk()}
