@@ -176,42 +176,6 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
                 "headers": {"Access-Control-Allow-Origin": "*"},
                 "body": json.dumps({"answer": answer})
             }
-
-        # Industry Projects
-        industry_keywords = [
-            "industry project", "industry projects", "company", "companies",
-            "internship", "internships", "collaboration", "collaborations",
-            "geons", "students involved", "project name", "project", "projects"
-        ]
-        if any(word in lower_q for word in industry_keywords):
-            print("→ Industry project question detected.")
-            combined_text = read_file_from_s3(bucket, dept_prefix + "industry_projects.json") + "\n\n"
-            for key in keys:
-                if key != "industry_projects.json":
-                    combined_text += read_file_from_s3(bucket, key) + "\n\n"
-            best_context = find_best_chunks(combined_text, question)
-            answer = ask_claude(best_context, question)
-            return {
-                "statusCode": 200,
-                "headers": {"Access-Control-Allow-Origin": "*"},
-                "body": json.dumps({"answer": answer})
-            }
-
-        # FAQs and Vision/Mission
-        faq_keywords = ["vision", "mission", "outcome", "objectives", "goal", "department aim"]
-        if any(word in lower_q for word in faq_keywords):
-            print("→ FAQ/vision/mission question detected.")
-            combined_text = read_file_from_s3(bucket, dept_prefix + "faqs.json") + "\n\n"
-            for key in keys:
-                if key != "faqs.json":
-                    combined_text += read_file_from_s3(bucket, key) + "\n\n"
-            best_context = find_best_chunks(combined_text, question)
-            answer = ask_claude(best_context, question)
-            return {
-                "statusCode": 200,
-                "headers": {"Access-Control-Allow-Origin": "*"},
-                "body": json.dumps({"answer": answer})
-            }
         # Project Topic Suggestions by Domain
         project_keywords = [
             "project topics", "project ideas", "mini project", "final year project", "domain projects",
@@ -249,10 +213,88 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
                 "headers": {"Access-Control-Allow-Origin": "*"},
                 "body": json.dumps({"answer": "\n".join(response_lines)})
             }
+        # ✅ Industry Projects
+        industry_keywords = [
+            "industry project", "industry projects", "company", "companies",
+            "internship", "internships", "collaboration", "collaborations",
+            "geons", "students involved",
+            "duration", "status"
+        ]
+
+        if any(word in lower_q for word in industry_keywords) or "project" in lower_q or "tell me about" in lower_q or "list" in lower_q:
+            print("→ Industry project question detected.")
+
+            # Read the industry projects JSON
+            try:
+                industry_json = read_file_from_s3(bucket, dept_prefix + "industry_projects.json")
+                projects = json.loads(industry_json)
+            except Exception as e:
+                return {
+                    "statusCode": 500,
+                    "headers": {"Access-Control-Allow-Origin": "*"},
+                    "body": json.dumps({"answer": f"❌ Failed to load project data: {str(e)}"})
+                }
+
+            matched_projects = []
+
+            # Match specific project name or general listing
+            for project in projects:
+                project_name = project.get("project_name", "").lower()
+                industry_name = project.get("industry_name", "").lower()
+                students = project.get("students_involved", "").lower()
+
+                if (
+                    project_name in lower_q
+                    or industry_name in lower_q
+                    or any(student.strip() in lower_q for student in students.split(","))
+                ):
+                    matched_projects.append(project)
+
+            # General listing of all if "list", "all", or "display" in query
+            if not matched_projects and any(word in lower_q for word in ["list", "all", "display", "show"]):
+                matched_projects = projects
+
+            # If we found matches, format nicely
+            if matched_projects:
+                lines = []
+                for proj in matched_projects:
+                    lines.append(
+                        f"🏭 *{proj.get('project_name', 'N/A')}* at _{proj.get('industry_name', 'N/A')}_\n"
+                        f"👨‍🎓 Students: {proj.get('students_involved', 'N/A')}\n"
+                        f"📅 Duration: {proj.get('duration', 'N/A')}\n"
+                        f"✅ Status: {proj.get('status', 'N/A')}\n"
+                    )
+                answer = "\n\n".join(lines)
+            else:
+                answer = "⚠️ Sorry, no matching industry project information found for your query."
+
+            return {
+                "statusCode": 200,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"answer": answer})
+            }
+
+
+        # FAQs and Vision/Mission
+        faq_keywords = ["vision", "mission", "outcome", "objectives", "goal", "department aim"]
+        if any(word in lower_q for word in faq_keywords):
+            print("→ FAQ/vision/mission question detected.")
+            combined_text = read_file_from_s3(bucket, dept_prefix + "faqs.json") + "\n\n"
+            for key in keys:
+                if key != "faqs.json":
+                    combined_text += read_file_from_s3(bucket, key) + "\n\n"
+            best_context = find_best_chunks(combined_text, question)
+            answer = ask_claude(best_context, question)
+            return {
+                "statusCode": 200,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"answer": answer})
+            }
+        
         # 📘 Important Question Links (by semester or subject)
         important_keywords = [
-            "important question", "important questions", "important links", "youtube links",
-            "video links", "question links", "sem videos", "semester videos", "unit videos"
+            "important question", "important questions link", "important links", "youtube links",
+            "video links", "question links", "sem videos", "semester videos", "unit links"
         ]
 
         if any(word in lower_q for word in important_keywords):
@@ -313,7 +355,7 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
             }
         # Syllabus / Semester-wise Course Info
         syllabus_keywords = [
-            "semester", "syllabus", "unit", "lesson", "topics", "subjects", 
+            "semester", "syllabus", "unit", "lesson", "topics", "subjects","units", 
             "second sem", "third sem", "first sem", "fourth sem", "fifth sem", 
             "sixth sem", "seventh sem", "eighth sem", "sem i", "sem ii", "sem iii",
             "sem iv", "sem v", "sem vi", "sem vii", "sem viii"
@@ -359,7 +401,6 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
             }
 
         # Course code (e.g., EP101)
-                # Course code (e.g., EP101)
         if re.match(r"[A-Z]{2,4}\d{3}", question.strip().upper()):
             print("→ Course code pattern detected.")
             combined_text = (
@@ -376,6 +417,31 @@ Achievements:\n- {chr(10).join(json.loads(fac.get("Achievements", "[]")))}"""
                 "headers": {"Access-Control-Allow-Origin": "*"},
                 "body": json.dumps({"answer": answer})
             }
+
+        if "elective courses" in lower_q or "open elective" in lower_q or "professional elective" in lower_q:
+            print("→ Elective courses query detected.")
+            elective_text = read_file_from_s3(bucket, dept_prefix + "elective_courses.json")
+            elective_data = json.loads(elective_text)
+
+            response_lines = ["📘 **Elective Courses Offered:**\n"]
+
+            for course in elective_data:
+                code = course.get("course_code", "N/A")
+                name = course.get("course_name", "N/A")
+                category = course.get("category", "N/A")
+                credits = course.get("credits", "N/A")
+                periods = course.get("periods_per_week", "N/A")
+
+                response_lines.append(f"🔹 {code} - {name} ({category}) – {credits} Credits – {periods}")
+
+            return {
+                "statusCode": 200,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"answer": "\n".join(response_lines)})
+            }
+
+
+
 
         # ✅ Default fallback if nothing matched
         print("→ Default: combining all files.")
